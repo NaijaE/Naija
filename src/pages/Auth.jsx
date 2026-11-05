@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import PasswordInput from '../components/PasswordInput.jsx'
 import { api, register, login, refreshMe, rememberCodes, devCodes, useAuth } from '../api.js'
 
 const Err = ({ text }) => (text ? <div className="notice red" role="alert" style={{ marginBottom: 14 }}>{text}</div> : null)
@@ -24,7 +25,7 @@ export function Register() {
       <div className="field"><label htmlFor="name">Full name</label><input id="name" autoComplete="name" value={f.name} onChange={set('name')} /></div>
       <div className="field"><label htmlFor="phone">Phone number</label><input id="phone" inputMode="tel" autoComplete="tel" placeholder="08012345678" value={f.phone} onChange={set('phone')} /></div>
       <div className="field"><label htmlFor="email">Email address</label><input id="email" type="email" autoComplete="email" value={f.email} onChange={set('email')} /></div>
-      <div className="field"><label htmlFor="pw">Password (min. 8 characters)</label><input id="pw" type="password" autoComplete="new-password" value={f.password} onChange={set('password')} /></div>
+      <div className="field"><label htmlFor="pw">Password (min. 8 characters)</label><PasswordInput id="pw" autoComplete="new-password" value={f.password} onChange={set('password')} /></div>
       <div className="field"><label htmlFor="ref">Referral code (optional)</label><input id="ref" value={f.referralCode} onChange={set('referralCode')} /></div>
       <div className="field"><label className="check"><input type="checkbox" checked={f.consent} onChange={set('consent')} />
         <span>I agree to the Terms and the Privacy Notice, and confirm I meet the eligibility rules.</span></label></div>
@@ -52,7 +53,7 @@ export function Login() {
       <h2>Log in</h2>
       <Err text={error} />
       <div className="field"><label htmlFor="e">Email address</label><input id="e" type="email" autoComplete="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></div>
-      <div className="field"><label htmlFor="p">Password</label><input id="p" type="password" autoComplete="current-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></div>
+      <div className="field"><label htmlFor="p">Password</label><PasswordInput id="p" autoComplete="current-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></div>
       <button className="btn" style={{ width: '100%' }} disabled={busy}>{busy ? 'Logging in…' : 'Log in'}</button>
       <p className="small muted" style={{ marginTop: 14 }}><Link to="/forgot">Forgot password?</Link> · New here? <Link to="/register">Create a free account</Link></p>
     </form>
@@ -143,7 +144,7 @@ export function Reset() {
       <Err text={error} />
       <div className="field"><label htmlFor="re">Email address</label><input id="re" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></div>
       <div className="field"><label htmlFor="rc">Reset code</label><input id="rc" inputMode="numeric" maxLength={6} value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} /></div>
-      <div className="field"><label htmlFor="rp">New password (min. 8 characters)</label><input id="rp" type="password" autoComplete="new-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></div>
+      <div className="field"><label htmlFor="rp">New password (min. 8 characters)</label><PasswordInput id="rp" autoComplete="new-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></div>
       <button className="btn" style={{ width: '100%' }}>Change password</button>
     </form>
   )

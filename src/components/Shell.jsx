@@ -1,4 +1,5 @@
-import { Link, NavLink, Navigate, Outlet, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Logo from './Logo.jsx'
 import { useAuth, logout, usePublicConfig, naira } from '../api.js'
 
@@ -22,27 +23,50 @@ export function Footer() {
   )
 }
 
-function Bar({ links, brandTo }) {
-  const { user } = useAuth()
-  const nav = useNavigate()
+// Top bar. On phones the links collapse into a hamburger menu.
+function TopNav({ brandTo, children }) {
+  const [open, setOpen] = useState(false)
+  const { pathname, search } = useLocation()
+  useEffect(() => { setOpen(false) }, [pathname, search])
+  useEffect(() => {
+    if (!open) return undefined
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
   return (
     <header className="nav">
       <div className="container">
         <Link to={brandTo}><Logo /></Link>
-        <nav className="nav-links" aria-label="Main">
-          <NavLink to="/" end className="home-link">⌂ Home</NavLink>
-          {links.map(([to, label, end]) => (
-            <NavLink key={to} to={to} end={end} className={({ isActive }) => (isActive ? 'active' : '')}>{label}</NavLink>
-          ))}
-          {user ? (
-            <>
-              <span className="muted small" style={{ padding: '0 8px' }}>{user.name}</span>
-              <button className="btn ghost sm" onClick={() => { logout(); nav('/') }}>Log out</button>
-            </>
-          ) : null}
+        <button type="button" className={'burger' + (open ? ' open' : '')} onClick={() => setOpen((o) => !o)}
+          aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} aria-controls="main-nav">
+          <span /><span /><span />
+        </button>
+        <nav id="main-nav" className={'nav-links' + (open ? ' open' : '')} aria-label="Main"
+          onClick={(e) => { if (e.target.closest('a, button:not(.menu-btn)')) setOpen(false) }}>
+          {children}
         </nav>
       </div>
     </header>
+  )
+}
+
+function Bar({ links, brandTo }) {
+  const { user } = useAuth()
+  const nav = useNavigate()
+  return (
+    <TopNav brandTo={brandTo}>
+      <NavLink to="/" end className="home-link">⌂ Home</NavLink>
+      {links.map(([to, label, end]) => (
+        <NavLink key={to} to={to} end={end} className={({ isActive }) => (isActive ? 'active' : '')}>{label}</NavLink>
+      ))}
+      {user ? (
+        <>
+          <span className="muted small nav-user">{user.name}</span>
+          <button className="btn ghost sm" onClick={() => { logout(); nav('/') }}>Log out</button>
+        </>
+      ) : null}
+    </TopNav>
   )
 }
 
@@ -52,7 +76,7 @@ function AdvertiseMenu({ user }) {
   const to = (id) => (user && user.role === 'MEMBER' ? `/app/advertise?package=${id}` : '/register')
   return (
     <div className="menu">
-      <button type="button" className="menu-btn" aria-haspopup="true">Advertise ▾</button>
+      <button type="button" className="menu-btn" aria-haspopup="true">Advertise <span className="caret">▾</span></button>
       <div className="menu-panel" role="menu">
         <div className="small muted" style={{ padding: '4px 10px 8px' }}>Advert subscription packages</div>
         {cfg.packages.map((p) => (
@@ -71,23 +95,18 @@ export function PublicLayout() {
   return (
     <>
       <DemoBar />
-      <header className="nav">
-        <div className="container">
-          <Link to="/"><Logo /></Link>
-          <nav className="nav-links" aria-label="Main">
-            <NavLink to="/" end className="home-link">⌂ Home</NavLink>
-            <AdvertiseMenu user={user} />
-            {user ? (
-              <Link className="btn sm" to={user.role === 'ADMIN' ? '/admin' : '/app'}>Open dashboard</Link>
-            ) : (
-              <>
-                <Link to="/login">Log in</Link>
-                <Link className="btn sm orange" to="/register">Join free</Link>
-              </>
-            )}
-          </nav>
-        </div>
-      </header>
+      <TopNav brandTo="/">
+        <NavLink to="/" end className="home-link">⌂ Home</NavLink>
+        <AdvertiseMenu user={user} />
+        {user ? (
+          <Link className="btn sm" to={user.role === 'ADMIN' ? '/admin' : '/app'}>Open dashboard</Link>
+        ) : (
+          <>
+            <Link to="/login">Log in</Link>
+            <Link className="btn sm orange" to="/register">Join free</Link>
+          </>
+        )}
+      </TopNav>
       <Outlet />
       <Footer />
     </>

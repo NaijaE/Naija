@@ -160,3 +160,32 @@ th { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-s
 
 @media (max-width: 820px) { .hero-grid { grid-template-columns: 1fr; } .float-stage { min-height: 300px; } .price.featured { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .float-a, .float-b, .float-c { animation: none; } .lift, .ad { transition: none; } }
+
+/* ---------- hamburger menu (phones) and password eye ---------- */
+.burger { display: none; width: 44px; height: 44px; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; cursor: pointer; padding: 0; flex-direction: column; align-items: center; justify-content: center; gap: 5px; }
+.burger span { display: block; width: 20px; height: 2px; background: var(--green-900); border-radius: 2px; transition: transform .2s, opacity .2s; }
+.burger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.burger.open span:nth-child(2) { opacity: 0; }
+.burger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+.nav-user { padding: 0 8px; }
+
+@media (max-width: 820px) {
+  .nav .container { flex-wrap: wrap; }
+  .burger { display: inline-flex; }
+  .nav-links { display: none; flex-basis: 100%; flex-direction: column; align-items: stretch; gap: 2px; padding: 8px 0 14px; border-top: 1px solid var(--line); }
+  .nav-links.open { display: flex; }
+  .nav-links a, .nav-links .btn { text-align: center; padding: 12px 14px; }
+  .nav-links a:not(.btn) { text-align: left; }
+  .nav-user { padding: 10px 14px; }
+  .menu-btn { pointer-events: none; text-align: left; width: 100%; font-weight: 800; color: var(--muted); }
+  .menu-panel { position: static; opacity: 1; visibility: visible; transform: none; box-shadow: none; border: 0; padding: 0 0 6px; min-width: 0; }
+  .menu-btn .caret { display: none; }
+  .menu-item { padding: 12px 14px; }
+}
+
+.pw { position: relative; display: block; }
+.pw input { padding-right: 48px; }
+.pw-toggle { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border: 0; background: transparent; color: var(--muted); border-radius: 10px; cursor: pointer; display: grid; place-items: center; }
+.pw-toggle:hover { background: var(--green-50); color: var(--green-900); }
+.pw-toggle:focus-visible { outline: 3px solid var(--orange-500); outline-offset: 0; }
+@media (prefers-reduced-motion: reduce) { .burger span { transition: none; } }
