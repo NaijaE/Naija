@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Logo from './Logo.jsx'
 import { useAuth, logout, usePublicConfig, naira } from '../api.js'
+import { company } from '../company.js'
 
 export const DemoBar = () => (import.meta.env.VITE_TEST_MODE === 'true' ? (
   <div className="demo-bar">Test mode: payments use test keys and no real money moves.</div>
@@ -17,14 +18,14 @@ export function Footer() {
           Naija Earn is a rewards platform. Rewards are paid only for validated completions of sponsor-funded video campaigns,
           depend on available campaigns, and are not guaranteed income. Joining is free. Advertisers pay for ad packages; members never pay to earn.
         </p>
-        <p className="small">© Naija Earn · Terms · Privacy Notice · Support</p>
+        <p className="small">© {new Date().getFullYear()} {company.name} · <Link to="/terms">Terms</Link> · <Link to="/privacy">Privacy Notice</Link> · <Link to="/support">Support</Link></p>
       </div>
     </footer>
   )
 }
 
 // Top bar. On phones the links collapse into a hamburger menu.
-function TopNav({ brandTo, children }) {
+function TopNav({ brandTo, compact, children }) {
   const [open, setOpen] = useState(false)
   const { pathname, search } = useLocation()
   useEffect(() => { setOpen(false) }, [pathname, search])
@@ -35,7 +36,7 @@ function TopNav({ brandTo, children }) {
     return () => document.removeEventListener('keydown', onKey)
   }, [open])
   return (
-    <header className="nav">
+    <header className={'nav' + (compact ? ' compact' : '')}>
       <div className="container">
         <Link to={brandTo}><Logo /></Link>
         <button type="button" className={'burger' + (open ? ' open' : '')} onClick={() => setOpen((o) => !o)}
@@ -55,7 +56,7 @@ function Bar({ links, brandTo }) {
   const { user } = useAuth()
   const nav = useNavigate()
   return (
-    <TopNav brandTo={brandTo}>
+    <TopNav brandTo={brandTo} compact={links.length > 6}>
       <NavLink to="/" end className="home-link">⌂ Home</NavLink>
       {links.map(([to, label, end]) => (
         <NavLink key={to} to={to} end={end} className={({ isActive }) => (isActive ? 'active' : '')}>{label}</NavLink>
@@ -122,7 +123,7 @@ export function MemberLayout() {
   return (
     <>
       <DemoBar />
-      <Bar brandTo="/app" links={[['/app', 'Dashboard', true], ['/app/videos', 'Videos'], ['/app/advertise', 'Advertise'], ['/app/referrals', 'Referrals'], ['/app/withdraw', 'Withdraw']]} />
+      <Bar brandTo="/app" links={[['/app', 'Dashboard', true], ['/app/videos', 'Videos'], ['/app/advertise', 'Advertise'], ['/app/campaigns', 'My campaigns'], ['/app/referrals', 'Referrals'], ['/app/withdraw', 'Withdraw'], ['/app/account', 'Account']]} />
       <main className="container stack" style={{ paddingTop: 24 }}><Outlet /></main>
       <Footer />
     </>
@@ -139,7 +140,7 @@ export function AdminLayout() {
       <DemoBar />
       <Bar brandTo="/admin" links={[
         ['/admin', 'Overview', true], ['/admin/campaigns', 'Campaigns'], ['/admin/deposits', 'Deposits'], ['/admin/withdrawals', 'Withdrawals'],
-        ['/admin/users', 'Members'], ['/admin/settings', 'Settings'], ['/admin/audit', 'Audit log'], ['/admin/regulator', 'Regulator view'],
+        ['/admin/users', 'Members'], ['/admin/settings', 'Settings'], ['/admin/audit', 'Audit'], ['/admin/regulator', 'Regulator'], ['/admin/account', 'Account'],
       ]} />
       <main className="container stack" style={{ paddingTop: 24 }}>
         <Outlet />

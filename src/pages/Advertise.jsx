@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api, useApi, usePublicConfig, naira, fmtTime, PAY_METHODS, ApiError } from '../api.js'
 import { StatusPill } from '../components/Shell.jsx'
 
@@ -42,6 +42,13 @@ export function Advertise() {
   const [msg, setMsg] = useState(null)
   const [busy, setBusy] = useState('')
   const handled = useRef(false)
+  const reuseId = params.get('reuse')
+  const prev = useApi(reuseId ? `/advertiser/campaigns/${reuseId}` : '', { skip: !reuseId })
+  const reuse = prev.data && prev.data.videoPublicId ? { publicId: prev.data.videoPublicId, title: prev.data.item.title, packageId: prev.data.item.packageId } : null
+  const filled = useRef(false)
+  useEffect(() => {
+    if (reuse && !filled.current) { filled.current = true; setF((x) => ({ ...x, title: reuse.title, packageId: reuse.packageId || x.packageId })) }
+  }, [reuse])
 
   // Returning from Paystack/Flutterwave: ask the server to verify the payment with the provider.
   useEffect(() => {
@@ -66,13 +73,12 @@ export function Advertise() {
     e.preventDefault()
     setMsg(null)
     if (f.title.trim().length < 3) return setMsg({ bad: true, text: 'Enter a title for your video.' })
-    if (!video) return setMsg({ bad: true, text: 'Choose your sponsor video file.' })
-    if (!video.type.startsWith('video/')) return setMsg({ bad: true, text: 'That file is not a video.' })
-    if (video.size > 100 * 1024 * 1024) return setMsg({ bad: true, text: 'Video must be under 100 MB.' })
+    if (!video && !reuse) return setMsg({ bad: true, text: 'Choose your sponsor video file.' })
+    if (video && !video.type.startsWith('video/')) return setMsg({ bad: true, text: 'That file is not a video.' })
+    if (video && video.size > 100 * 1024 * 1024) return setMsg({ bad: true, text: 'Video must be under 100 MB.' })
     if (f.method === 'BANK_TRANSFER' && !proof) return setMsg({ bad: true, text: 'Upload your proof of payment for a bank transfer.' })
     try {
-      setBusy('Uploading your video…')
-      const videoPublicId = await uploadVideo(video)
+      const videoPublicId = video || !reuse ? (setBusy('Uploading your video…'), await uploadVideo(video)) : reuse.publicId
       setBusy('Creating your order…')
       let body = { packageId: f.packageId, method: f.method, title: f.title.trim(), videoPublicId }
       if (f.method === 'BANK_TRANSFER') {
@@ -99,7 +105,7 @@ export function Advertise() {
         <h1 style={{ fontSize: '1.8rem' }}>Advertise</h1>
         <p className="muted">Run your own sponsor video. Your package price funds a campaign budget, and members are paid from it for validated views. This is separate from earning, which is always free.</p>
       </div>
-      <div className="row"><span className={'pill' + (subscribed ? '' : ' grey')}>Advertiser status: {subscribed ? 'Subscribed' : 'Free'}</span></div>
+      <div className="row"><span className={'pill' + (subscribed ? '' : ' grey')}>Advertiser status: {subscribed ? 'Subscribed' : 'Free'}</span><Link className="btn ghost sm" to="/app/campaigns">My campaigns</Link></div>
 
       <div className="grid g3">
         {cfg.packages.map((p) => (
@@ -126,6 +132,7 @@ export function Advertise() {
         <h2>Fund a campaign</h2>
         <div className="field"><label htmlFor="vt">Video title</label><input id="vt" value={f.title} onChange={set('title')} /></div>
         <div className="field"><label htmlFor="vf">Sponsor video (10 to 120 seconds, under 100 MB)</label>
+          {reuse && !video ? <div className="notice green small">Using the video from your earlier campaign: <b>{reuse.title}</b>. Choose a file below only if you want to use a different video.</div> : null}
           <input id="vf" type="file" accept="video/*" onChange={(e) => setVideo(e.target.files[0] || null)} />
           <span className="small muted">Only original, lawful sponsor videos are approved. An admin reviews every video before it goes live.</span></div>
         <div className="field"><label htmlFor="pm">Payment method</label>

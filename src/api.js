@@ -75,6 +75,11 @@ export async function register(f) {
   rememberCodes(r.devCodes)
   return r.user
 }
+export async function changePassword(currentPassword, newPassword) {
+  const r = await api.post('/auth/change-password', { currentPassword, newPassword })
+  setToken(r.token) // other devices are signed out; this one keeps going
+  return r
+}
 export const logout = () => { dropSession(); try { sessionStorage.removeItem(CODES_KEY) } catch { /* ignore */ } }
 
 // Verification codes are only returned by the API in development (EXPOSE_DEV_CODES=true).

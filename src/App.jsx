@@ -4,6 +4,9 @@ import Landing from './pages/Landing.jsx'
 import { Register, Login, Verify, Forgot, Reset } from './pages/Auth.jsx'
 import { Dashboard, Videos, Watch, Withdraw, Referrals } from './pages/Member.jsx'
 import { Advertise } from './pages/Advertise.jsx'
+import Account from './pages/Account.jsx'
+import { MyCampaigns, CampaignDetail, Receipt } from './pages/Advertiser.jsx'
+import { Terms, Privacy, Support } from './pages/Legal.jsx'
 import { Overview, Campaigns, Deposits, Withdrawals, Members, Settings, AuditLog, Regulator } from './pages/Admin.jsx'
 
 export default function App() {
@@ -16,14 +19,21 @@ export default function App() {
         <Route path="/verify" element={<Verify />} />
         <Route path="/forgot" element={<Forgot />} />
         <Route path="/reset" element={<Reset />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/support" element={<Support />} />
       </Route>
       <Route path="/app" element={<MemberLayout />}>
         <Route index element={<Dashboard />} />
         <Route path="videos" element={<Videos />} />
         <Route path="watch/:campaignId" element={<Watch />} />
         <Route path="advertise" element={<Advertise />} />
+        <Route path="campaigns" element={<MyCampaigns />} />
+        <Route path="campaigns/:id" element={<CampaignDetail />} />
+        <Route path="receipt/:id" element={<Receipt />} />
         <Route path="referrals" element={<Referrals />} />
         <Route path="withdraw" element={<Withdraw />} />
+        <Route path="account" element={<Account />} />
       </Route>
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Overview />} />
@@ -34,6 +44,7 @@ export default function App() {
         <Route path="settings" element={<Settings />} />
         <Route path="audit" element={<AuditLog />} />
         <Route path="regulator" element={<Regulator />} />
+        <Route path="account" element={<Account />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -28,7 +28,7 @@ export function Register() {
       <div className="field"><label htmlFor="pw">Password (min. 8 characters)</label><PasswordInput id="pw" autoComplete="new-password" value={f.password} onChange={set('password')} /></div>
       <div className="field"><label htmlFor="ref">Referral code (optional)</label><input id="ref" value={f.referralCode} onChange={set('referralCode')} /></div>
       <div className="field"><label className="check"><input type="checkbox" checked={f.consent} onChange={set('consent')} />
-        <span>I agree to the Terms and the Privacy Notice, and confirm I meet the eligibility rules.</span></label></div>
+        <span>I am 18 or older and agree to the <Link to="/terms" target="_blank">Terms of Use</Link> and the <Link to="/privacy" target="_blank">Privacy Notice</Link>.</span></label></div>
       <button className="btn" style={{ width: '100%' }} disabled={busy}>{busy ? 'Creating account…' : 'Create account'}</button>
       <p className="small muted" style={{ marginTop: 14 }}>Already have an account? <Link to="/login">Log in</Link></p>
     </form>
