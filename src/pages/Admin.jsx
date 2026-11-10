@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api, useApi, useAuth, naira, fmtTime, PAY_METHODS, toKobo, API_URL } from '../api.js'
 import { Stat, StatusPill } from '../components/Shell.jsx'
+import { uploadVideoToCloudinary, videoFileProblem } from '../upload.js'
 
 const sum = (arr, f) => arr.reduce((a, x) => a + f(x), 0)
 const ask = (label) => window.prompt(label)
@@ -91,14 +92,39 @@ export function Deposits() {
   )
 }
 
-async function uploadAdminVideo(file) {
-  const sig = await api.post('/admin/uploads/video-signature')
-  const fd = new FormData()
-  fd.append('file', file); fd.append('api_key', sig.apiKey); fd.append('timestamp', sig.timestamp); fd.append('folder', sig.folder); fd.append('signature', sig.signature)
-  const res = await fetch(sig.uploadUrl, { method: 'POST', body: fd })
-  const j = await res.json().catch(() => ({}))
-  if (!res.ok || !j.public_id) throw new Error((j.error && j.error.message) || 'Video upload failed.')
-  return j.public_id
+const uploadAdminVideo = (file) => uploadVideoToCloudinary(file, '/admin/uploads/video-signature')
+
+// Add (or replace) the video on a paid package, on the advertiser's behalf.
+function AdminVideoForm({ campaign, onClose, onDone, setMsg }) {
+  const [title, setTitle] = useState(campaign.title || '')
+  const [file, setFile] = useState(null)
+  const [goLive, setGoLive] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const submit = async (e) => {
+    e.preventDefault()
+    if (title.trim().length < 3) return setMsg({ error: 'Enter a title for the video.' })
+    const p = videoFileProblem(file)
+    if (p) return setMsg({ error: p })
+    setBusy(true)
+    try {
+      const videoPublicId = await uploadAdminVideo(file)
+      await api.post(`/admin/campaigns/${campaign.id}/video`, { title: title.trim(), videoPublicId, goLive })
+      setMsg({ ok: goLive ? 'Video added and the campaign is live.' : 'Video added and sent to the review queue.' })
+      onDone(); onClose()
+    } catch (err) { setMsg({ error: err.message }) } finally { setBusy(false) }
+  }
+  return (
+    <form className="card stack" onSubmit={submit}>
+      <h2>Upload video for: {campaign.name}</h2>
+      <p className="muted small">Use this when an advertiser sends you their video, or to replace one that has not been approved yet. The paid budget is {naira(campaign.budgetKobo)}.</p>
+      <div className="grid g2">
+        <div className="field"><label htmlFor="avtitle">Video title</label><input id="avtitle" value={title} onChange={(e) => setTitle(e.target.value)} /></div>
+        <div className="field"><label htmlFor="avfile">Video file (10 to 120 s, under 100 MB)</label><input id="avfile" type="file" accept="video/*" onChange={(e) => setFile(e.target.files[0] || null)} /></div>
+      </div>
+      <label className="check"><input type="checkbox" checked={goLive} onChange={(e) => setGoLive(e.target.checked)} /><span>I have checked this video. Approve it and go live now.</span></label>
+      <div className="row"><button className="btn" disabled={busy}>{busy ? 'Uploading…' : 'Upload video'}</button><button type="button" className="btn ghost" onClick={onClose}>Cancel</button></div>
+    </form>
+  )
 }
 
 export function Campaigns() {
@@ -107,6 +133,7 @@ export function Campaigns() {
   const [f, setF] = useState({ name: '', sponsor: '', title: '', rewardNaira: 50, rateNaira: 75 })
   const [video, setVideo] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [videoFor, setVideoFor] = useState(null)
   if (c.error) return <Problem error={c.error} onRetry={c.reload} />
   if (!c.data) return <Loading />
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
@@ -129,8 +156,13 @@ export function Campaigns() {
   }
   const review = (x, approve) => {
     let reason
-    if (!approve) { reason = ask('Reason for rejecting this video (refund is handled separately):'); if (reason === null) return }
-    act(setMsg, c.reload, () => api.post(`/admin/campaigns/${x.id}/content`, approve ? { approve: true } : { approve: false, reason }), approve ? 'Campaign is live.' : 'Video rejected and campaign closed.')
+    if (!approve) { reason = ask('Reason for rejecting this video and refunding the advertiser:'); if (reason === null) return }
+    act(setMsg, c.reload, () => api.post(`/admin/campaigns/${x.id}/content`, approve ? { approve: true } : { approve: false, reason }), approve ? 'Campaign is live.' : 'Video rejected and campaign closed. A refund is due to the advertiser.')
+  }
+  const sendBack = (x) => {
+    const reason = ask('Why does the advertiser need to upload a new video? (they will see this; their payment stays safe)')
+    if (reason === null) return
+    act(setMsg, c.reload, () => api.post(`/admin/campaigns/${x.id}/content`, { approve: false, requestNewVideo: true, reason }), 'Sent back. The advertiser can upload a new video.')
   }
   const setStatus = (x, status) => {
     const reason = ask(`Reason to set "${x.name}" to ${status}:`)
@@ -141,17 +173,21 @@ export function Campaigns() {
     <>
       <h1 style={{ fontSize: '1.8rem' }}>Campaigns</h1>
       <Msg m={msg} />
+      {videoFor ? <AdminVideoForm campaign={videoFor} onClose={() => setVideoFor(null)} onDone={c.reload} setMsg={setMsg} /> : null}
       <div className="card"><div className="table-wrap"><table>
         <thead><tr><th>Campaign</th><th>Sponsor</th><th>Reward / advertiser rate</th><th>Budget</th><th>Used</th><th>Completions</th><th>Status</th><th /></tr></thead>
         <tbody>{c.data.campaigns.map((x) => (
           <tr key={x.id}>
-            <td><b>{x.name}</b><div className="small muted">{x.title}</div></td><td>{x.sponsor}</td>
+            <td><b>{x.name}</b><div className="small muted">{x.title || 'no video yet'}</div></td><td>{x.sponsor}</td>
             <td>{naira(x.rewardKobo)} / {naira(x.advertiserRateKobo)}</td>
             <td>{naira(x.budgetKobo)}<div className="small muted">{x.prepaymentRef || 'no prepayment'}</div></td>
             <td>{naira(x.consumedKobo)}</td><td>{x.completions} / {x.completionCap}</td><td><StatusPill status={x.status} /></td>
             <td className="row">
               {x.status === 'CONTENT_REVIEW' ? <button className="btn sm" onClick={() => review(x, true)}>Approve &amp; go live</button> : null}
-              {x.status === 'CONTENT_REVIEW' ? <button className="btn sm danger" onClick={() => review(x, false)}>Reject video</button> : null}
+              {x.status === 'CONTENT_REVIEW' ? <button className="btn sm ghost" onClick={() => sendBack(x)}>Ask for new video</button> : null}
+              {x.status === 'CONTENT_REVIEW' ? <button className="btn sm danger" onClick={() => review(x, false)}>Reject &amp; refund</button> : null}
+              {x.status === 'AWAITING_VIDEO' ? <button className="btn sm orange" onClick={() => setVideoFor(x)}>Upload video</button> : null}
+              {x.status === 'CONTENT_REVIEW' ? <button className="btn sm ghost" onClick={() => setVideoFor(x)}>Replace video</button> : null}
               {x.status === 'PENDING_REVIEW' ? <button className="btn sm" onClick={() => fund(x)}>Record prepayment</button> : null}
               {x.status === 'ACTIVE' ? <button className="btn sm ghost" onClick={() => setStatus(x, 'PAUSED')}>Pause</button> : null}
               {x.status === 'PAUSED' ? <button className="btn sm ghost" onClick={() => setStatus(x, 'ACTIVE')}>Resume</button> : null}

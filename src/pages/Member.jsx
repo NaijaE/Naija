@@ -16,6 +16,7 @@ export function Dashboard() {
   const { cfg } = usePublicConfig()
   const dash = useApi('/me/dashboard')
   const vids = useApi('/videos')
+  const adv = useApi('/advertiser/campaigns')
   if (dash.error) return <Problem error={dash.error} onRetry={dash.reload} />
   if (!dash.data || !cfg) return <Loading />
   const d = dash.data
@@ -30,6 +31,10 @@ export function Dashboard() {
         <p className="muted">Your account is active. Joining was free: nothing was charged to you.</p>
         <span className={'pill' + (d.advertiserStatus === 'SUBSCRIBED' ? '' : ' grey')}>Advertiser status: {d.advertiserStatus === 'SUBSCRIBED' ? 'Subscribed' : 'Free'}</span>
       </div>
+
+      {adv.data && adv.data.summary.needsVideo > 0 ? (
+        <div className="notice" role="status"><b>You have {adv.data.summary.needsVideo} paid package{adv.data.summary.needsVideo === 1 ? '' : 's'} waiting for a video.</b> <Link to="/app/campaigns">Add your video</Link> so members can start watching it.</div>
+      ) : null}
 
       <div className="card stat hero">
         <div className="label">Daily video limit</div>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { api, useApi, usePublicConfig, naira, fmtTime, PAY_METHODS, ApiError } from '../api.js'
+import { api, useApi, usePublicConfig, naira, fmtTime, PAY_METHODS } from '../api.js'
 import { StatusPill } from '../components/Shell.jsx'
 
 export function DepositTable({ orders }) {
@@ -9,46 +9,23 @@ export function DepositTable({ orders }) {
     <div className="table-wrap"><table>
       <thead><tr><th>Date</th><th>Package</th><th>Amount</th><th>Method</th><th>Status</th></tr></thead>
       <tbody>{orders.map((o) => (
-        <tr key={o.id}><td>{fmtTime(o.createdAt)}</td><td>{o.packageName}<div className="small muted">{o.title}</div></td><td>{naira(o.priceKobo)}</td>
+        <tr key={o.id}><td>{fmtTime(o.createdAt)}</td><td>{o.packageName}</td><td>{naira(o.priceKobo)}</td>
           <td>{PAY_METHODS[o.method]}{o.ref ? <div className="small muted">ref {o.ref}</div> : null}</td>
           <td><StatusPill status={o.status} />{o.rejectReason ? <div className="small muted">{o.rejectReason}</div> : null}</td></tr>
       ))}</tbody></table></div>
   )
 }
 
-// Browser -> Cloudinary directly, using a signature from our API. Large files never touch our server.
-async function uploadVideo(file) {
-  const sig = await api.post('/uploads/video-signature')
-  const fd = new FormData()
-  fd.append('file', file)
-  fd.append('api_key', sig.apiKey)
-  fd.append('timestamp', sig.timestamp)
-  fd.append('folder', sig.folder)
-  fd.append('signature', sig.signature)
-  let res
-  try { res = await fetch(sig.uploadUrl, { method: 'POST', body: fd }) } catch { throw new ApiError('Video upload failed. Check your connection.', 0) }
-  const j = await res.json().catch(() => ({}))
-  if (!res.ok || !j.public_id) throw new ApiError((j.error && j.error.message) || 'Video upload failed.', res.status)
-  return j.public_id
-}
-
+// Step 1 of advertising: choose a package and pay. The video is added afterwards from "My campaigns".
 export function Advertise() {
   const { cfg } = usePublicConfig()
   const orders = useApi('/orders')
   const [params, setParams] = useSearchParams()
-  const [f, setF] = useState({ packageId: params.get('package') || 'spark', method: 'PAYSTACK', title: '' })
-  const [video, setVideo] = useState(null)
+  const [f, setF] = useState({ packageId: params.get('package') || 'spark', method: 'PAYSTACK' })
   const [proof, setProof] = useState(null)
   const [msg, setMsg] = useState(null)
-  const [busy, setBusy] = useState('')
+  const [busy, setBusy] = useState(false)
   const handled = useRef(false)
-  const reuseId = params.get('reuse')
-  const prev = useApi(reuseId ? `/advertiser/campaigns/${reuseId}` : '', { skip: !reuseId })
-  const reuse = prev.data && prev.data.videoPublicId ? { publicId: prev.data.videoPublicId, title: prev.data.item.title, packageId: prev.data.item.packageId } : null
-  const filled = useRef(false)
-  useEffect(() => {
-    if (reuse && !filled.current) { filled.current = true; setF((x) => ({ ...x, title: reuse.title, packageId: reuse.packageId || x.packageId })) }
-  }, [reuse])
 
   // Returning from Paystack/Flutterwave: ask the server to verify the payment with the provider.
   useEffect(() => {
@@ -56,7 +33,8 @@ export function Advertise() {
     if (!id || handled.current) return
     handled.current = true
     api.post(`/orders/${id}/verify`).then((r) => {
-      setMsg(r.status === 'PAID' ? { text: 'Payment confirmed. Your video is now in content review before it goes live.' }
+      setMsg(r.status === 'PAID'
+        ? { text: 'Payment confirmed. Next step: add your video.', orderId: id }
         : { text: 'We have not received confirmation of this payment yet. If you paid, wait a minute and use "Check payment".' })
       orders.reload()
     }).catch((e) => setMsg({ bad: true, text: e.message })).finally(() => { params.delete('order'); setParams(params, { replace: true }) })
@@ -72,30 +50,27 @@ export function Advertise() {
   const submit = async (e) => {
     e.preventDefault()
     setMsg(null)
-    if (f.title.trim().length < 3) return setMsg({ bad: true, text: 'Enter a title for your video.' })
-    if (!video && !reuse) return setMsg({ bad: true, text: 'Choose your sponsor video file.' })
-    if (video && !video.type.startsWith('video/')) return setMsg({ bad: true, text: 'That file is not a video.' })
-    if (video && video.size > 100 * 1024 * 1024) return setMsg({ bad: true, text: 'Video must be under 100 MB.' })
     if (f.method === 'BANK_TRANSFER' && !proof) return setMsg({ bad: true, text: 'Upload your proof of payment for a bank transfer.' })
+    setBusy(true)
     try {
-      const videoPublicId = video || !reuse ? (setBusy('Uploading your video…'), await uploadVideo(video)) : reuse.publicId
-      setBusy('Creating your order…')
-      let body = { packageId: f.packageId, method: f.method, title: f.title.trim(), videoPublicId }
+      let body = { packageId: f.packageId, method: f.method }
       if (f.method === 'BANK_TRANSFER') {
         body = new FormData()
-        Object.entries({ packageId: f.packageId, method: f.method, title: f.title.trim(), videoPublicId }).forEach(([k, v]) => body.append(k, v))
-        body.append('proof', proof)
+        body.append('packageId', f.packageId); body.append('method', f.method); body.append('proof', proof)
       }
       const r = await api.post('/orders', body)
       if (r.paymentUrl) { window.location.href = r.paymentUrl; return }
       setMsg({ text: r.message || 'Order received.' })
-      setVideo(null); setProof(null); setF({ ...f, title: '' })
+      setProof(null)
       orders.reload()
-    } catch (err) { setMsg({ bad: true, text: err.message }) } finally { setBusy('') }
+    } catch (err) { setMsg({ bad: true, text: err.message }) } finally { setBusy(false) }
   }
   const check = async (id) => {
-    try { const r = await api.post(`/orders/${id}/verify`); setMsg({ text: r.status === 'PAID' ? 'Payment confirmed.' : 'Still waiting for the payment provider to confirm.' }); orders.reload() }
-    catch (err) { setMsg({ bad: true, text: err.message }) }
+    try {
+      const r = await api.post(`/orders/${id}/verify`)
+      setMsg(r.status === 'PAID' ? { text: 'Payment confirmed. Next step: add your video.', orderId: id } : { text: 'Still waiting for the payment provider to confirm.' })
+      orders.reload()
+    } catch (err) { setMsg({ bad: true, text: err.message }) }
   }
   const cancel = async (id) => { try { await api.post(`/orders/${id}/cancel`); orders.reload() } catch (err) { setMsg({ bad: true, text: err.message }) } }
 
@@ -103,7 +78,12 @@ export function Advertise() {
     <>
       <div>
         <h1 style={{ fontSize: '1.8rem' }}>Advertise</h1>
-        <p className="muted">Run your own sponsor video. Your package price funds a campaign budget, and members are paid from it for validated views. This is separate from earning, which is always free.</p>
+        <p className="muted">Your package price funds a campaign budget, and members are paid from it for validated views. This is separate from earning, which is always free.</p>
+      </div>
+      <div className="grid g3">
+        <div className="card"><b>1. Choose and pay</b><p className="muted small">Pick a package and pay. No video is needed yet.</p></div>
+        <div className="card"><b>2. Add your video</b><p className="muted small">Open <Link to="/app/campaigns">My campaigns</Link> and upload your video once your payment is confirmed.</p></div>
+        <div className="card"><b>3. We review it</b><p className="muted small">Approved videos go live and members start watching.</p></div>
       </div>
       <div className="row"><span className={'pill' + (subscribed ? '' : ' grey')}>Advertiser status: {subscribed ? 'Subscribed' : 'Free'}</span><Link className="btn ghost sm" to="/app/campaigns">My campaigns</Link></div>
 
@@ -118,7 +98,12 @@ export function Advertise() {
         ))}
       </div>
 
-      {msg ? <div className={'notice ' + (msg.bad ? 'red' : 'green')} role={msg.bad ? 'alert' : 'status'}>{msg.text}</div> : null}
+      {msg ? (
+        <div className={'notice ' + (msg.bad ? 'red' : 'green')} role={msg.bad ? 'alert' : 'status'}>
+          {msg.text}
+          {msg.orderId ? <div style={{ marginTop: 10 }}><Link className="btn sm orange" to={`/app/campaigns/${msg.orderId}`}>Add your video now</Link></div> : null}
+        </div>
+      ) : null}
 
       {waiting.map((o) => (
         <div key={o.id} className="card stack">
@@ -129,12 +114,7 @@ export function Advertise() {
       ))}
 
       <form className="card stack" onSubmit={submit}>
-        <h2>Fund a campaign</h2>
-        <div className="field"><label htmlFor="vt">Video title</label><input id="vt" value={f.title} onChange={set('title')} /></div>
-        <div className="field"><label htmlFor="vf">Sponsor video (10 to 120 seconds, under 100 MB)</label>
-          {reuse && !video ? <div className="notice green small">Using the video from your earlier campaign: <b>{reuse.title}</b>. Choose a file below only if you want to use a different video.</div> : null}
-          <input id="vf" type="file" accept="video/*" onChange={(e) => setVideo(e.target.files[0] || null)} />
-          <span className="small muted">Only original, lawful sponsor videos are approved. An admin reviews every video before it goes live.</span></div>
+        <h2>Pay for {pkg.name}</h2>
         <div className="field"><label htmlFor="pm">Payment method</label>
           <select id="pm" value={f.method} onChange={set('method')}>{Object.entries(PAY_METHODS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
         {f.method === 'BANK_TRANSFER' ? (
@@ -146,7 +126,7 @@ export function Advertise() {
         ) : null}
         <div className="row between">
           <span className="muted">Total: <b>{naira(pkg.priceKobo)}</b> for {pkg.completions.toLocaleString()} views</span>
-          <button className="btn" disabled={!!busy}>{busy || (f.method === 'BANK_TRANSFER' ? 'Submit transfer for review' : `Continue to ${PAY_METHODS[f.method]}`)}</button>
+          <button className="btn" disabled={busy}>{busy ? 'Please wait…' : (f.method === 'BANK_TRANSFER' ? 'Submit transfer for review' : `Continue to ${PAY_METHODS[f.method]}`)}</button>
         </div>
       </form>
 

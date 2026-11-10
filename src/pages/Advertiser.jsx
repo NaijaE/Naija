@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { useApi, naira, fmtTime, PAY_METHODS } from '../api.js'
+import { api, useApi, naira, fmtTime, PAY_METHODS } from '../api.js'
+import { uploadVideoToCloudinary, videoFileProblem } from '../upload.js'
 import { Stat } from '../components/Shell.jsx'
 import { company as c } from '../company.js'
 
@@ -9,7 +11,7 @@ const Problem = ({ error, onRetry }) => (
 )
 
 const STATUS = {
-  LIVE: ['Live', ''], IN_REVIEW: ['In review', 'orange'], PAYMENT_REVIEW: ['Checking your transfer', 'orange'], WAITING_PAYMENT: ['Waiting for payment', 'orange'],
+  NEEDS_VIDEO: ['Add your video', 'orange'], LIVE: ['Live', ''], IN_REVIEW: ['In review', 'orange'], PAYMENT_REVIEW: ['Checking your transfer', 'orange'], WAITING_PAYMENT: ['Waiting for payment', 'orange'],
   PAUSED: ['Paused', 'grey'], COMPLETED: ['Completed', ''], CLOSED: ['Stopped', 'grey'], REJECTED: ['Video not approved', 'red'],
   PAYMENT_REJECTED: ['Payment rejected', 'red'], CANCELLED: ['Cancelled', 'grey'],
 }
@@ -40,6 +42,7 @@ export function MyCampaigns() {
           <Stat label="Live now" value={s.live} hint={s.inReview ? `${s.inReview} waiting for review` : 'Showing to members'} />
         </div>
       ) : null}
+      {s.needsVideo ? <div className="notice" role="status"><b>{s.needsVideo} paid package{s.needsVideo === 1 ? '' : 's'} need{s.needsVideo === 1 ? 's' : ''} a video.</b> Open it below and press <b>Add video</b>. Members cannot watch anything until a video is approved.</div> : null}
       {s.waitingPayment ? <div className="notice">You have {s.waitingPayment} order(s) waiting for payment. Open one and use "Check payment" on the Advertise page if you have already paid.</div> : null}
       {s.refundDueKobo ? <div className="notice red" role="alert">{naira(s.refundDueKobo)} is due back to you for a video that was not approved. Please contact <Link to="/support">support</Link> with the campaign details.</div> : null}
 
@@ -64,7 +67,8 @@ export function MyCampaigns() {
               </div>
               {i.estimatedDaysLeft != null && i.status === 'LIVE' ? <p className="small muted">{i.estimatedDaysLeft === 0 ? 'About to finish.' : `At the current pace, about ${i.estimatedDaysLeft} day${i.estimatedDaysLeft === 1 ? '' : 's'} left.`} This is only an estimate.</p> : null}
               <div className="row">
-                <Link className="btn sm" to={`/app/campaigns/${i.id}`}>Details</Link>
+                {i.needsVideo ? <Link className="btn sm orange" to={`/app/campaigns/${i.id}`}>Add video</Link> : null}
+                <Link className={'btn sm' + (i.needsVideo ? ' ghost' : '')} to={`/app/campaigns/${i.id}`}>Details</Link>
                 {i.hasReceipt ? <Link className="btn sm ghost" to={`/app/receipt/${i.id}`}>Receipt</Link> : null}
               </div>
             </div>
@@ -103,6 +107,50 @@ function DailyBars({ daily }) {
   )
 }
 
+// Step 2 of advertising: add the video to a package that has been paid for.
+function AddVideo({ orderId, returnedReason, onDone }) {
+  const all = useApi('/advertiser/campaigns')
+  const seen = new Set()
+  const earlier = ((all.data && all.data.items) || []).filter((i) => i.videoPublicId && i.id !== orderId && !seen.has(i.videoPublicId) && seen.add(i.videoPublicId))
+  const [title, setTitle] = useState('')
+  const [file, setFile] = useState(null)
+  const [reuse, setReuse] = useState('')
+  const [busy, setBusy] = useState('')
+  const [msg, setMsg] = useState(null)
+  const submit = async (e) => {
+    e.preventDefault()
+    setMsg(null)
+    if (title.trim().length < 3) return setMsg({ bad: true, text: 'Enter a title for your video.' })
+    if (!file && !reuse) return setMsg({ bad: true, text: 'Choose a video file, or pick one you used before.' })
+    if (file) { const p = videoFileProblem(file); if (p) return setMsg({ bad: true, text: p }) }
+    try {
+      let videoPublicId = reuse
+      if (file) { setBusy('Uploading your video…'); videoPublicId = await uploadVideoToCloudinary(file) }
+      setBusy('Submitting…')
+      await api.post(`/advertiser/campaigns/${orderId}/video`, { title: title.trim(), videoPublicId })
+      setMsg({ text: 'Video submitted. We will review it and it will go live once approved.' })
+      onDone()
+    } catch (err) { setMsg({ bad: true, text: err.message }) } finally { setBusy('') }
+  }
+  return (
+    <form className="card stack" onSubmit={submit}>
+      <h2>Add your video</h2>
+      {returnedReason ? <div className="notice red" role="alert"><b>Your last video was sent back.</b> Reason: {returnedReason}. Your payment is still safe. Please upload a corrected video.</div> : null}
+      <p className="muted small">Your payment is confirmed. Add the video members will watch. It must be 10 to 120 seconds long and under 100 MB. It must be your own or properly licensed, lawful, truthful and not misleading. Every video is reviewed before it goes live.</p>
+      {msg ? <div className={'notice ' + (msg.bad ? 'red' : 'green')} role={msg.bad ? 'alert' : 'status'}>{msg.text}</div> : null}
+      <div className="field"><label htmlFor="avt">Video title</label><input id="avt" value={title} onChange={(e) => setTitle(e.target.value)} /></div>
+      <div className="field"><label htmlFor="avf">Video file</label><input id="avf" type="file" accept="video/*" onChange={(e) => setFile(e.target.files[0] || null)} /></div>
+      {earlier.length ? (
+        <div className="field"><label htmlFor="avr">Or use a video from an earlier campaign</label>
+          <select id="avr" value={reuse} onChange={(e) => setReuse(e.target.value)} disabled={!!file}>
+            <option value="">Choose…</option>{earlier.map((i) => <option key={i.videoPublicId} value={i.videoPublicId}>{i.title}</option>)}
+          </select></div>
+      ) : null}
+      <button className="btn" disabled={!!busy}>{busy || 'Submit video for review'}</button>
+    </form>
+  )
+}
+
 export function CampaignDetail() {
   const { id } = useParams()
   const q = useApi(`/advertiser/campaigns/${id}`)
@@ -110,7 +158,6 @@ export function CampaignDetail() {
   if (!q.data) return <Loading />
   const { item: i, timeline, daily, videoUrl, ref } = q.data
   const left = Math.max(0, i.viewsPurchased - i.viewsDelivered)
-  const canReuse = !['REJECTED', 'PAYMENT_REJECTED'].includes(i.status)
   return (
     <>
       <div>
@@ -123,6 +170,7 @@ export function CampaignDetail() {
 
       {i.status === 'REJECTED' ? <div className="notice red" role="alert"><b>Your video was not approved.</b> {i.rejectReason ? `Reason: ${i.rejectReason}. ` : ''}A refund of {naira(i.priceKobo)} is due. Please contact <Link to="/support">support</Link> and quote this campaign.</div> : null}
       {i.status === 'PAYMENT_REJECTED' ? <div className="notice red" role="alert"><b>Your payment was rejected.</b> {i.rejectReason ? `Reason: ${i.rejectReason}. ` : ''}You can place a new order from the Advertise page.</div> : null}
+      {i.status === 'NEEDS_VIDEO' ? <AddVideo orderId={id} returnedReason={i.videoRejectReason} onDone={q.reload} /> : null}
       {i.status === 'WAITING_PAYMENT' ? <div className="notice">This order is waiting for payment. If you have already paid, open the <Link to="/app/advertise">Advertise page</Link> and press "Check payment".</div> : null}
       {i.status === 'PAYMENT_REVIEW' ? <div className="notice">We have your bank transfer and proof of payment. An admin will confirm it against our bank statement.</div> : null}
       {i.status === 'IN_REVIEW' ? <div className="notice">Payment confirmed. We review every video before it goes live, and you will see it here as soon as it is approved.</div> : null}
@@ -145,6 +193,7 @@ export function CampaignDetail() {
           </ol>
         </div>
         <div className="card stack"><h2>Your video</h2>
+          {!videoUrl && i.status === 'NEEDS_VIDEO' ? <p className="muted">No video added yet.</p> : null}
           {videoUrl ? <video src={videoUrl} controls preload="metadata" playsInline style={{ width: '100%', borderRadius: 12, background: '#000' }} /> : <p className="muted">No preview available.</p>}
         </div>
       </div>
@@ -154,7 +203,6 @@ export function CampaignDetail() {
         <p><b>Amount:</b> {naira(i.priceKobo)} · <b>Method:</b> {PAY_METHODS[i.method]}{ref ? <> · <b>Reference:</b> {ref}</> : null}</p>
         <div className="row">
           {i.hasReceipt ? <Link className="btn" to={`/app/receipt/${i.id}`}>View receipt</Link> : null}
-          {canReuse ? <Link className="btn ghost" to={`/app/advertise?reuse=${i.id}`}>Run this video again</Link> : null}
         </div>
       </div>
     </>
