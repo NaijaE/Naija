@@ -100,6 +100,7 @@ function AdminVideoForm({ campaign, onClose, onDone, setMsg }) {
   const [file, setFile] = useState(null)
   const [goLive, setGoLive] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [pct, setPct] = useState(0)
   const submit = async (e) => {
     e.preventDefault()
     if (title.trim().length < 3) return setMsg({ error: 'Enter a title for the video.' })
@@ -107,7 +108,8 @@ function AdminVideoForm({ campaign, onClose, onDone, setMsg }) {
     if (p) return setMsg({ error: p })
     setBusy(true)
     try {
-      const videoPublicId = await uploadAdminVideo(file)
+      setPct(0)
+      const videoPublicId = await uploadVideoToCloudinary(file, '/admin/uploads/video-signature', setPct)
       await api.post(`/admin/campaigns/${campaign.id}/video`, { title: title.trim(), videoPublicId, goLive })
       setMsg({ ok: goLive ? 'Video added and the campaign is live.' : 'Video added and sent to the review queue.' })
       onDone(); onClose()
@@ -122,7 +124,7 @@ function AdminVideoForm({ campaign, onClose, onDone, setMsg }) {
         <div className="field"><label htmlFor="avfile">Video file (10 to 120 s, under 100 MB)</label><input id="avfile" type="file" accept="video/*" onChange={(e) => setFile(e.target.files[0] || null)} /></div>
       </div>
       <label className="check"><input type="checkbox" checked={goLive} onChange={(e) => setGoLive(e.target.checked)} /><span>I have checked this video. Approve it and go live now.</span></label>
-      <div className="row"><button className="btn" disabled={busy}>{busy ? 'Uploading…' : 'Upload video'}</button><button type="button" className="btn ghost" onClick={onClose}>Cancel</button></div>
+      <div className="row"><button className="btn" disabled={busy}>{busy ? `Uploading… ${pct}%` : 'Upload video'}</button><button type="button" className="btn ghost" onClick={onClose}>Cancel</button></div>
     </form>
   )
 }

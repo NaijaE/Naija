@@ -116,6 +116,7 @@ function AddVideo({ orderId, returnedReason, onDone }) {
   const [file, setFile] = useState(null)
   const [reuse, setReuse] = useState('')
   const [busy, setBusy] = useState('')
+  const [pct, setPct] = useState(0)
   const [msg, setMsg] = useState(null)
   const submit = async (e) => {
     e.preventDefault()
@@ -125,7 +126,7 @@ function AddVideo({ orderId, returnedReason, onDone }) {
     if (file) { const p = videoFileProblem(file); if (p) return setMsg({ bad: true, text: p }) }
     try {
       let videoPublicId = reuse
-      if (file) { setBusy('Uploading your video…'); videoPublicId = await uploadVideoToCloudinary(file) }
+      if (file) { setPct(0); setBusy('Uploading'); videoPublicId = await uploadVideoToCloudinary(file, '/uploads/video-signature', setPct) }
       setBusy('Submitting…')
       await api.post(`/advertiser/campaigns/${orderId}/video`, { title: title.trim(), videoPublicId })
       setMsg({ text: 'Video submitted. We will review it and it will go live once approved.' })
@@ -146,7 +147,8 @@ function AddVideo({ orderId, returnedReason, onDone }) {
             <option value="">Choose…</option>{earlier.map((i) => <option key={i.videoPublicId} value={i.videoPublicId}>{i.title}</option>)}
           </select></div>
       ) : null}
-      <button className="btn" disabled={!!busy}>{busy || 'Submit video for review'}</button>
+      {busy === 'Uploading' ? <div><div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i style={{ width: `${pct}%` }} /></div><p className="small muted">Uploading your video… {pct}%. Keep this page open until it finishes.</p></div> : null}
+      <button className="btn" disabled={!!busy}>{busy === 'Uploading' ? `Uploading… ${pct}%` : busy || 'Submit video for review'}</button>
     </form>
   )
 }
