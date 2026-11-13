@@ -175,6 +175,14 @@ export function Campaigns() {
     if (reason === null) return
     act(setMsg, c.reload, () => api.patch(`/admin/campaigns/${x.id}/status`, { status, reason }), 'Updated.')
   }
+  const adjustBudget = (x) => {
+    const amt = ask(`New TOTAL budget in ₦ for "${x.name}"\n(now ${naira(x.budgetKobo)}; ${naira(x.consumedKobo)} already used; ${naira(x.advertiserRateKobo)} per view):`)
+    if (amt === null) return
+    if (!(Number(amt) > 0)) return setMsg({ error: 'Enter a valid amount in naira.' })
+    const reason = ask('Reason for changing this budget:')
+    if (reason === null) return
+    act(setMsg, c.reload, () => api.patch(`/admin/campaigns/${x.id}/budget`, { budgetKobo: toKobo(amt), reason }), 'Budget updated.')
+  }
   return (
     <>
       <h1 style={{ fontSize: '1.8rem' }}>Campaigns</h1>
@@ -198,6 +206,7 @@ export function Campaigns() {
               {x.status === 'ACTIVE' ? <button className="btn sm ghost" onClick={() => setStatus(x, 'PAUSED')}>Pause</button> : null}
               {x.status === 'PAUSED' ? <button className="btn sm ghost" onClick={() => setStatus(x, 'ACTIVE')}>Resume</button> : null}
               {['ACTIVE', 'PAUSED'].includes(x.status) ? <button className="btn sm ghost" onClick={() => setStatus(x, 'CLOSED')}>Close</button> : null}
+              {['ACTIVE', 'PAUSED', 'CONTENT_REVIEW', 'AWAITING_VIDEO'].includes(x.status) ? <button className="btn sm ghost" onClick={() => adjustBudget(x)}>Adjust budget</button> : null}
             </td>
           </tr>))}</tbody></table></div>
         {c.data.campaigns.length === 0 ? <p className="muted">No campaigns yet.</p> : null}</div>
