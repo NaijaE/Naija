@@ -132,7 +132,8 @@ function AdminVideoForm({ campaign, onClose, onDone, setMsg }) {
 export function Campaigns() {
   const c = useApi('/admin/campaigns')
   const [msg, setMsg] = useState(null)
-  const [f, setF] = useState({ name: '', sponsor: '', title: '', rewardNaira: 50, rateNaira: 75 })
+  const [f, setF] = useState({ name: '', sponsor: '', title: '', rewardNaira: 50, rateNaira: 75, budgetNaira: 5000 })
+  const [platform, setPlatform] = useState(false)
   const [video, setVideo] = useState(null)
   const [busy, setBusy] = useState(false)
   const [videoFor, setVideoFor] = useState(null)
@@ -145,8 +146,11 @@ export function Campaigns() {
     setBusy(true)
     try {
       const videoPublicId = await uploadAdminVideo(video)
-      await api.post('/admin/campaigns', { name: f.name, sponsor: f.sponsor, title: f.title, videoPublicId, rewardKobo: toKobo(f.rewardNaira), advertiserRateKobo: toKobo(f.rateNaira) })
-      setMsg({ ok: 'Campaign created and waiting for prepayment. It cannot go live until funds clear.' }); setVideo(null); c.reload()
+      const body = { name: f.name, sponsor: f.sponsor, title: f.title, videoPublicId, rewardKobo: toKobo(f.rewardNaira) }
+      if (platform) body.platformBudgetKobo = toKobo(f.budgetNaira); else body.advertiserRateKobo = toKobo(f.rateNaira)
+      await api.post('/admin/campaigns', body)
+      setMsg({ ok: platform ? 'Platform-funded campaign is live. Members are paid from this budget until it runs out.' : 'Campaign created and waiting for prepayment. It cannot go live until funds clear.' })
+      setVideo(null); c.reload()
     } catch (err) { setMsg({ error: err.message }) } finally { setBusy(false) }
   }
   const fund = (x) => {
@@ -182,7 +186,7 @@ export function Campaigns() {
           <tr key={x.id}>
             <td><b>{x.name}</b><div className="small muted">{x.title || 'no video yet'}</div></td><td>{x.sponsor}</td>
             <td>{naira(x.rewardKobo)} / {naira(x.advertiserRateKobo)}</td>
-            <td>{naira(x.budgetKobo)}<div className="small muted">{x.prepaymentRef || 'no prepayment'}</div></td>
+            <td>{naira(x.budgetKobo)}<div className="small muted">{x.fundingSource === 'PLATFORM' ? 'Platform-funded' : (x.prepaymentRef || 'no prepayment')}</div></td>
             <td>{naira(x.consumedKobo)}</td><td>{x.completions} / {x.completionCap}</td><td><StatusPill status={x.status} /></td>
             <td className="row">
               {x.status === 'CONTENT_REVIEW' ? <button className="btn sm" onClick={() => review(x, true)}>Approve &amp; go live</button> : null}
@@ -200,16 +204,19 @@ export function Campaigns() {
 
       <form className="card stack" onSubmit={create}>
         <h2>New house campaign</h2>
-        <p className="muted small">For an advertiser who pays outside the package checkout. It starts unfunded; after their prepayment clears, use "Record prepayment" to take it live. The advertiser rate must cover the member reward.</p>
+        <p className="muted small">For an advertiser who pays outside the package checkout, or a promotional video funded by the platform itself. An advertiser campaign starts unfunded; after their prepayment clears, use "Record prepayment" to take it live.</p>
+        <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={platform} onChange={(e) => setPlatform(e.target.checked)} /> Fund this campaign from platform funds (goes live immediately)</label>
         <div className="grid g2">
           <div className="field"><label>Campaign name</label><input value={f.name} onChange={set('name')} /></div>
           <div className="field"><label>Sponsor (advertiser)</label><input value={f.sponsor} onChange={set('sponsor')} /></div>
           <div className="field"><label>Video title</label><input value={f.title} onChange={set('title')} /></div>
           <div className="field"><label>Video file (10 to 120 s)</label><input type="file" accept="video/*" onChange={(e) => setVideo(e.target.files[0] || null)} /></div>
           <div className="field"><label>Member reward (₦)</label><input value={f.rewardNaira} onChange={set('rewardNaira')} inputMode="decimal" /></div>
-          <div className="field"><label>Advertiser rate per view (₦)</label><input value={f.rateNaira} onChange={set('rateNaira')} inputMode="decimal" /></div>
+          {platform
+            ? <div className="field"><label>Platform budget (₦)</label><input value={f.budgetNaira} onChange={set('budgetNaira')} inputMode="decimal" /><span className="small muted">Views available: about {Math.floor(Number(f.budgetNaira || 0) / Math.max(Number(f.rewardNaira || 0), 0.01)).toLocaleString()}</span></div>
+            : <div className="field"><label>Advertiser rate per view (₦)</label><input value={f.rateNaira} onChange={set('rateNaira')} inputMode="decimal" /></div>}
         </div>
-        <button className="btn" disabled={busy}>{busy ? 'Uploading…' : 'Create campaign'}</button>
+        <button className="btn" disabled={busy}>{busy ? 'Uploading…' : (platform ? 'Create and go live' : 'Create campaign')}</button>
       </form>
     </>
   )
