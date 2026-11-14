@@ -16,6 +16,8 @@ export function Dashboard() {
   const { cfg } = usePublicConfig()
   const dash = useApi('/me/dashboard')
   const vids = useApi('/videos')
+  const reloadVids = vids.reload
+  useEffect(() => { const t = setInterval(reloadVids, 30000); return () => clearInterval(t) }, [reloadVids])
   const adv = useApi('/advertiser/campaigns')
   if (dash.error) return <Problem error={dash.error} onRetry={dash.reload} />
   if (!dash.data || !cfg) return <Loading />
@@ -56,9 +58,9 @@ export function Dashboard() {
       </div>
 
       <div className="card stack">
-        <div className="row between"><h2>Today's sponsor videos</h2><Link to="/app/videos">See all</Link></div>
+        <div className="row between"><h2>Today's sponsor videos</h2><div className="row"><button className="btn ghost sm" onClick={vids.reload}>Shuffle</button><Link to="/app/videos">See all</Link></div></div>
         {live.length === 0 ? <div className="notice">No funded campaigns are available right now. Check back soon.</div> : (
-          live.slice(0, 2).map((c) => (
+          live.slice(0, 3).map((c) => (
             <div key={c.id} className="row between">
               <div><b>{c.title}</b><div className="muted small">{c.sponsor} · {c.durationSec}s · {naira(c.rewardKobo)} reward</div></div>
               <Link className="btn sm" to={`/app/watch/${c.id}`}>Watch</Link>

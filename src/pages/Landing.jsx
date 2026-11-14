@@ -1,81 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth, usePublicConfig, naira } from '../api.js'
-
-// Fictional sponsors, used only for the demo preview on the home page.
-const ADS = [
-  { id: 'a1', sponsor: 'Zobo & Co', title: 'Ice-cold zobo, delivered to your door', sec: 5, tone: 't1', icon: '🥤' },
-  { id: 'a2', sponsor: 'Lagos Tech Hub', title: 'Learn to code in 12 weeks', sec: 6, tone: 't2', icon: '💻' },
-  { id: 'a3', sponsor: 'Ankara Street', title: 'New season prints are here', sec: 5, tone: 't3', icon: '👗' },
-]
-
-function AdDemo({ rewards, cap }) {
-  const [playing, setPlaying] = useState(null)
-  const [pct, setPct] = useState(0)
-  const [done, setDone] = useState([])
-  const el = useRef(0)
-
-  useEffect(() => {
-    if (!playing) return undefined
-    const ad = ADS.find((a) => a.id === playing)
-    el.current = 0
-    const t = setInterval(() => {
-      el.current += 0.1
-      setPct(Math.min(100, (el.current / ad.sec) * 100))
-      if (el.current >= ad.sec) { clearInterval(t); setDone((d) => [...d, ad.id]); setPlaying(null) }
-    }, 100)
-    return () => clearInterval(t)
-  }, [playing])
-
-  const earned = done.reduce((a, id) => a + rewards[ADS.findIndex((x) => x.id === id)], 0)
-  const full = done.length >= cap
-  const start = (id) => { setPct(0); setPlaying(id) }
-  const reset = () => { setDone([]); setPlaying(null); setPct(0) }
-
-  return (
-    <div className="browser">
-      <div className="browser-bar">
-        <i /><i /><i /><span className="url">naijaearn.com / dashboard</span>
-      </div>
-      <div className="browser-body">
-        <div className="row between" style={{ marginBottom: 14 }}>
-          <div><b>Today's sponsor videos</b><div className="small muted">{done.length} of {cap} watched today</div></div>
-          <div className="earn-chip">+{naira(earned)}</div>
-        </div>
-        <div className="feed">
-          {ADS.map((a, i) => {
-            const isDone = done.includes(a.id)
-            const isPlaying = playing === a.id
-            return (
-              <div key={a.id} className={'ad ' + a.tone + (isDone ? ' done' : '')}>
-                <div className="thumb">
-                  <span className="ad-tag">Sponsored</span>
-                  <span className="ad-icon" aria-hidden="true">{isDone ? '✓' : a.icon}</span>
-                  <span className="ad-len">0:{String(a.sec).padStart(2, '0')}</span>
-                  {isPlaying ? <div className="ad-progress"><i style={{ width: `${pct}%` }} /></div> : null}
-                </div>
-                <div className="ad-meta">
-                  <b>{a.title}</b>
-                  <span className="small muted">{a.sponsor}</span>
-                  <div className="row between" style={{ marginTop: 8 }}>
-                    <span className="pill orange">{naira(rewards[i])}</span>
-                    {isDone ? <span className="pill">Watched</span>
-                      : isPlaying ? <span className="small muted">Playing… no skipping</span>
-                      : <button className="btn sm" disabled={!!playing || full} onClick={() => start(a.id)}>Watch</button>}
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-        <div className="row between" style={{ marginTop: 14 }}>
-          <span className="small muted">{full ? 'Daily limit reached. New videos appear tomorrow.' : 'Press Watch. In the real app a reward is credited only after the full video plays.'}</span>
-          {done.length ? <button className="btn ghost sm" onClick={reset}>Replay demo</button> : null}
-        </div>
-      </div>
-    </div>
-  )
-}
+import FeaturedVideos from '../components/FeaturedVideos.jsx'
 
 export default function Landing() {
   const { user } = useAuth()
@@ -97,7 +23,7 @@ export default function Landing() {
             <p>Complete short, approved sponsor videos and get paid from advertisers' prepaid budgets. You never pay to earn, and cashing out is never tied to recruiting anyone.</p>
             <div className="row">
               <Link className="btn orange" to="/register">Join free</Link>
-              <button className="btn ghost light" onClick={() => go('demo')}>See how videos appear</button>
+              <button className="btn ghost light" onClick={() => go('demo')}>See live videos</button>
               <button className="btn ghost light" onClick={() => go('packages')}>Advertise with us</button>
             </div>
           </div>
@@ -105,7 +31,7 @@ export default function Landing() {
             <div className="phone float-a">
               <div className="phone-screen">
                 <div className="mini-player"><span>▶</span><div className="mini-progress"><i /></div></div>
-                <b>Zobo & Co</b><span className="small">Ice-cold zobo, delivered</span>
+                <b>Sponsor video</b><span className="small">Watch to the end to earn</span>
               </div>
             </div>
             <div className="chip c1 float-b">+{naira(rewards[0])} credited</div>
@@ -124,14 +50,7 @@ export default function Landing() {
         </div>
       </div>
 
-      <section id="demo" className="container stack section">
-        <div className="center">
-          <span className="pill">Live preview</span>
-          <h2>This is how sponsor videos appear</h2>
-          <p className="muted">Try it: press Watch on a video. Rewards shown here come from our current package settings. Sponsors in this preview are fictional.</p>
-        </div>
-        <AdDemo rewards={rewards} cap={cfg.dailyCap} />
-      </section>
+      <FeaturedVideos />
 
       <section className="container stack section">
         <div className="center"><h2>How it works</h2></div>
