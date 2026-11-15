@@ -267,6 +267,14 @@ export function Members() {
   const [applied, setApplied] = useState('')
   const m = useApi(`/admin/users?page=1${applied ? `&search=${encodeURIComponent(applied)}` : ''}`)
   const [msg, setMsg] = useState(null)
+  const remove = (u) => {
+    const reason = ask(`Reason for permanently deleting ${u.email}? This cannot be undone.`)
+    if (reason === null) return
+    let forfeit = false
+    if (u.balanceKobo > 0) { forfeit = window.confirm(`${u.email} still has ${naira(u.balanceKobo)}. Deleting forfeits it. Continue?`); if (!forfeit) return }
+    if (!window.confirm(`Delete ${u.email} permanently?`)) return
+    act(setMsg, m.reload, () => api.post(`/admin/users/${u.id}/delete`, { reason, forfeitBalance: forfeit }), 'Account deleted.')
+  }
   const toggle = (u) => {
     const next = u.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'
     const reason = ask(`Reason to set ${u.email} to ${next}:`)
@@ -284,7 +292,7 @@ export function Members() {
       {m.error ? <Problem error={m.error} onRetry={m.reload} /> : !m.data ? <Loading /> : (
         <div className="card"><p className="muted small">{m.data.total} member(s)</p><div className="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Joined</th><th>Total deposits</th><th>Balance</th><th>Status</th><th /></tr></thead>
           <tbody>{m.data.users.map((u) => (<tr key={u.id}><td>{u.name}{u.verified ? '' : <div className="small muted">not verified</div>}</td><td>{u.email}</td><td>{fmtTime(u.createdAt)}</td><td>{naira(u.totalDepositsKobo)}</td><td>{naira(u.balanceKobo)}</td><td><StatusPill status={u.status} /></td>
-            <td><button className="btn sm ghost" onClick={() => toggle(u)}>{u.status === 'SUSPENDED' ? 'Restore' : 'Suspend'}</button></td></tr>))}</tbody></table></div>
+            <td><button className="btn sm ghost" onClick={() => toggle(u)}>{u.status === 'SUSPENDED' ? 'Restore' : 'Suspend'}</button> <button className="btn sm danger" onClick={() => remove(u)}>Delete</button></td></tr>))}</tbody></table></div>
           {m.data.users.length === 0 ? <p className="muted">No members found.</p> : null}</div>
       )}
     </>

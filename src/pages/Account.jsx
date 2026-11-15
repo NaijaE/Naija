@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import DeleteAccount from '../components/DeleteAccount.jsx'
 import { useAuth, changePassword } from '../api.js'
 import PasswordInput from '../components/PasswordInput.jsx'
 
@@ -40,6 +41,7 @@ export default function Account() {
         <div className="field"><label htmlFor="cf">Confirm new password</label><PasswordInput id="cf" autoComplete="new-password" value={f.confirm} onChange={set('confirm')} /></div>
         <button className="btn" disabled={busy}>{busy ? 'Saving…' : 'Change password'}</button>
       </form>
+    <DeleteAccount />
     </>
   )
 }
