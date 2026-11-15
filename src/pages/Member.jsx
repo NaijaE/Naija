@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import EarnNotice from '../components/EarnNotice.jsx'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, useApi, useAuth, usePublicConfig, naira, fmtTime, lagosDate, toKobo, BANKS } from '../api.js'
 import { Stat, StatusPill } from '../components/Shell.jsx'
@@ -58,12 +59,13 @@ export function Dashboard() {
       </div>
 
       <div className="card stack">
+        {vids.data && vids.data.canEarn === false ? <EarnNotice /> : null}
         <div className="row between"><h2>Today's sponsor videos</h2><div className="row"><button className="btn ghost sm" onClick={vids.reload}>Shuffle</button><Link to="/app/videos">See all</Link></div></div>
         {live.length === 0 ? <div className="notice">No funded campaigns are available right now. Check back soon.</div> : (
           live.slice(0, 3).map((c) => (
             <div key={c.id} className="row between">
               <div><b>{c.title}</b><div className="muted small">{c.sponsor} · {c.durationSec}s · {naira(c.rewardKobo)} reward</div></div>
-              <Link className="btn sm" to={`/app/watch/${c.id}`}>Watch</Link>
+              <Link className="btn sm" to={vids.data.canEarn === false ? '/app/advertise' : `/app/watch/${c.id}`}>{vids.data.canEarn === false ? 'Get a package' : 'Watch'}</Link>
             </div>
           ))
         )}
@@ -111,11 +113,12 @@ export function Videos() {
   const v = useApi('/videos')
   if (v.error) return <Problem error={v.error} onRetry={v.reload} />
   if (!v.data) return <Loading />
-  const { videos, watchedToday, dailyCap, remainingToday } = v.data
+  const { videos, watchedToday, dailyCap, remainingToday, canEarn } = v.data
   return (
     <>
       <div><h1 style={{ fontSize: '1.8rem' }}>Sponsor videos</h1>
         <p className="muted">{watchedToday} of {dailyCap} watched today · {remainingToday} slot(s) left</p></div>
+      {canEarn === false ? <EarnNotice /> : null}
       <div className="notice green">Each video shows its sponsor, length and reward before you start. The reward you see is the reward you get.</div>
       <div className="grid g2">
         {videos.map((c) => (
@@ -123,7 +126,7 @@ export function Videos() {
             <div className="row between"><span className="row"><span className="pill">Sponsor-owned · approved</span>{c.liveAt && lagosDate(new Date(c.liveAt)) === lagosDate() ? <span className="pill orange">New today</span> : null}</span><b>{naira(c.rewardKobo)}</b></div>
             <h3>{c.title}</h3>
             <p className="muted small">{c.sponsor} · {c.durationSec}s</p>
-            {c.watched ? <span className="pill">Watched</span> : remainingToday === 0 ? <span className="pill grey">Daily limit reached</span> : <Link className="btn" to={`/app/watch/${c.id}`}>Watch video</Link>}
+            {c.watched ? <span className="pill">Watched</span> : canEarn === false ? <Link className="btn orange" to="/app/advertise">Get a package to earn</Link> : remainingToday === 0 ? <span className="pill grey">Daily limit reached</span> : <Link className="btn" to={`/app/watch/${c.id}`}>Watch video</Link>}
           </div>
         ))}
       </div>
