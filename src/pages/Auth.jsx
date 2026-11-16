@@ -26,7 +26,7 @@ export function Register() {
       <div className="field"><label htmlFor="phone">Phone number</label><input id="phone" inputMode="tel" autoComplete="tel" placeholder="08012345678" value={f.phone} onChange={set('phone')} /></div>
       <div className="field"><label htmlFor="email">Email address</label><input id="email" type="email" autoComplete="email" value={f.email} onChange={set('email')} /></div>
       <div className="field"><label htmlFor="pw">Password (min. 8 characters)</label><PasswordInput id="pw" autoComplete="new-password" value={f.password} onChange={set('password')} /></div>
-      <div className="field"><label htmlFor="ref">Referral code (optional)</label><input id="ref" value={f.referralCode} onChange={set('referralCode')} /></div>
+      <div className="field"><label htmlFor="ref">Referral code</label><input id="ref" value={f.referralCode} onChange={set('referralCode')} /></div>
       <div className="field"><label className="check"><input type="checkbox" checked={f.consent} onChange={set('consent')} />
         <span>I am 18 or older and agree to the <Link to="/terms" target="_blank">Terms of Use</Link> and the <Link to="/privacy" target="_blank">Privacy Notice</Link>.</span></label></div>
       <button className="btn" style={{ width: '100%' }} disabled={busy}>{busy ? 'Creating account…' : 'Create account'}</button>

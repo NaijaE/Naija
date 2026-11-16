@@ -26,7 +26,7 @@ export function Dashboard() {
   const live = ((vids.data && vids.data.videos) || []).filter((v) => !v.watched)
   const paidOut = sum(d.withdrawals.filter((w) => w.status === 'PAID'), (w) => w.netKobo)
   const held = sum(d.withdrawals.filter((w) => ['PENDING', 'APPROVED'].includes(w.status)), (w) => w.amountKobo)
-  const canWithdraw = d.balanceKobo >= d.minWithdrawalKobo
+  const canWithdraw = d.balanceKobo >= d.minWithdrawalKobo && d.verifiedReferrals >= (d.referralsRequiredToWithdraw || 0)
   return (
     <>
       <div>
@@ -53,7 +53,7 @@ export function Dashboard() {
       <div className="grid g3">
         <Stat label="Total balance" value={naira(d.balanceKobo)} hint="Available to withdraw" />
         <Stat label="Today's earnings" value={naira(d.todayEarningsKobo)} hint="Resets at midnight (Africa/Lagos)" />
-        <Stat label="Referral earnings" value={naira(d.referralEarningsKobo)} hint={`${d.verifiedReferrals} verified referral${d.verifiedReferrals === 1 ? '' : 's'} (optional)`} />
+        <Stat label="Referral earnings" value={naira(d.referralEarningsKobo)} hint={`${d.verifiedReferrals} verified referral${d.verifiedReferrals === 1 ? '' : 's'}${d.referralsWithPackage ? ` · ${d.referralsWithPackage} bought a package` : ''}`} />
         <Stat label="Held in withdrawal requests" value={naira(held)} hint="Pending or approved, not yet paid" />
         <Stat label="Paid out" value={naira(paidOut)} hint="Confirmed bank payouts (after fees)" />
       </div>
@@ -74,12 +74,12 @@ export function Dashboard() {
       <div className="grid g2">
         <div className="card stack">
           <h2>Withdraw</h2>
-          <p className="muted">Minimum {naira(cfg.minWithdrawalKobo)}. Fee {naira(cfg.withdrawalFeeKobo)}, deducted from your payout. Referrals are optional and never required.</p>
-          <Link className={'btn' + (canWithdraw ? '' : ' ghost')} to="/app/withdraw">{canWithdraw ? 'Request withdrawal' : `Reach ${naira(cfg.minWithdrawalKobo)} to withdraw`}</Link>
+          <p className="muted">Minimum {naira(cfg.minWithdrawalKobo)}. Fee {naira(cfg.withdrawalFeeKobo)}, deducted from your payout.{d.referralsRequiredToWithdraw > 0 ? ` Members with a package need ${d.referralsRequiredToWithdraw} verified referrals to withdraw.` : ''}</p>
+          <Link className={'btn' + (canWithdraw ? '' : ' ghost')} to="/app/withdraw">{canWithdraw ? 'Request withdrawal' : (d.verifiedReferrals < (d.referralsRequiredToWithdraw || 0) ? 'Referrals needed to withdraw' : `Reach ${naira(cfg.minWithdrawalKobo)} to withdraw`)}</Link>
         </div>
         <div className="card stack">
-          <h2>Referrals (optional)</h2>
-          <p className="muted">{d.verifiedReferrals} verified referral{d.verifiedReferrals === 1 ? '' : 's'}. {cfg.referralRewardKobo > 0 ? `Each referral that completes a first video earns ${naira(cfg.referralRewardKobo)}.` : 'Referral rewards are not currently offered.'}</p>
+          <h2>Referrals</h2>
+          <p className="muted">{d.verifiedReferrals} verified referral{d.verifiedReferrals === 1 ? '' : 's'}. {cfg.referralRewardKobo > 0 ? `Each referral that buys a package earns you ${naira(cfg.referralRewardKobo)}.` : 'Referral rewards are not currently offered.'}</p>
           <Link className="btn ghost" to="/app/referrals">Your referral code</Link>
         </div>
       </div>
@@ -234,7 +234,10 @@ export function Withdraw() {
   if (dash.error) return <Problem error={dash.error} onRetry={dash.reload} />
   if (!dash.data || !cfg) return <Loading />
   const bal = dash.data.balanceKobo
-  const meets = bal >= cfg.minWithdrawalKobo
+  const need = dash.data.referralsRequiredToWithdraw || 0
+  const have = dash.data.verifiedReferrals || 0
+  const refsOk = have >= need
+  const meets = bal >= cfg.minWithdrawalKobo && refsOk
   const set = (k) => (e) => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })
   const submit = async (e) => {
     e.preventDefault()
@@ -253,7 +256,7 @@ export function Withdraw() {
       <div><h1 style={{ fontSize: '1.8rem' }}>Withdraw</h1><p className="muted">Minimum {naira(cfg.minWithdrawalKobo)} · Available {naira(bal)}</p></div>
       <div className="notice green">
         Fee: {naira(cfg.withdrawalFeeKobo)}, deducted from your payout. A request is marked paid only after the bank transfer is made and its reference recorded.
-        You do <b>not</b> need referrals to withdraw.
+        {need > 0 ? <>To withdraw you need <b>{need} verified referrals</b>. You have {have}.</> : null}
       </div>
       <form className="card stack" onSubmit={submit}>
         {msg ? <div className={'notice ' + (msg.bad ? 'red' : 'green')} role={msg.bad ? 'alert' : 'status'}>{msg.text}</div> : null}
@@ -264,7 +267,7 @@ export function Withdraw() {
         <div className="field"><label htmlFor="acn">Account name</label><input id="acn" value={f.accountName} onChange={set('accountName')} />
           <span className="small muted">Must match the name on the bank account. Operations check it before paying.</span></div>
         <label className="check"><input type="checkbox" checked={f.consent} onChange={set('consent')} /><span>I consent to Naija Earn processing this payout to the account above.</span></label>
-        <button className="btn" disabled={!meets || busy}>{meets ? (busy ? 'Submitting…' : 'Submit withdrawal request') : `Reach ${naira(cfg.minWithdrawalKobo)} to withdraw`}</button>
+        <button className="btn" disabled={!meets || busy}>{meets ? (busy ? 'Submitting…' : 'Submit withdrawal request') : (!refsOk ? `Get ${need - have} more verified referral${need - have === 1 ? '' : 's'} to withdraw` : `Reach ${naira(cfg.minWithdrawalKobo)} to withdraw`)}</button>
       </form>
     </>
   )
@@ -279,13 +282,13 @@ export function Referrals() {
   const verified = r.data.referred.filter((x) => x.verified)
   return (
     <>
-      <div><h1 style={{ fontSize: '1.8rem' }}>Referrals</h1><p className="muted">Optional. Invite friends if you like: it is never required to earn or withdraw.</p></div>
+      <div><h1 style={{ fontSize: '1.8rem' }}>Referrals</h1><p className="muted">Invite friends with your code. Members with a package need 3 verified referrals before they can withdraw.</p></div>
       <div className="card stack">
         <div className="field"><label>Your referral code</label><input readOnly value={user.referralCode} /></div>
         <div className="field"><label>Your invite link</label><input readOnly value={link} onFocus={(e) => e.target.select()} /></div>
         <div className="notice green">
           {r.data.bonusKobo > 0
-            ? `Rule: you earn ${naira(r.data.bonusKobo)} once, when someone you invite verifies their contacts and completes their first validated video. It is paid from that campaign's margin, never from anyone's deposit.`
+            ? `Rule: you earn ${naira(r.data.bonusKobo)} once, when someone you invite buys their first package. It is credited to your balance straight away and shows in your referral earnings.`
             : 'Rule: referral rewards are not currently offered. Referral counts are still recorded.'}
         </div>
       </div>
