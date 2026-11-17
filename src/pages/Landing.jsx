@@ -97,7 +97,7 @@ export default function Landing() {
           <div className="card lift"><h3>Is there a fee to join?</h3><p className="muted">No. Sign-up is free and nothing is deducted from you to start.</p></div>
           <div className="card lift"><h3>How much can I watch?</h3><p className="muted">Up to {cfg.dailyCap} eligible videos per day (resets at midnight, Africa/Lagos).</p></div>
           <div className="card lift"><h3>Where do rewards come from?</h3><p className="muted">Each reward is paid from a specific advertiser campaign that has been pre-funded. When a campaign's budget is used up, it closes.</p></div>
-          <div className="card lift"><h3>Do I have to refer people?</h3><p className="muted">Not to earn. Members with an advertising package need 3 verified referrals before they can withdraw.</p></div>
+          <div className="card lift"><h3>Do I have to refer people?</h3><p className="muted">Not to earn, but everyone needs 3 verified referrals before they can withdraw.</p></div>
         </div>
         <div className="notice" role="note">
           Rewards depend on available funded campaigns and are not guaranteed income. Only approved first-party sponsor videos are eligible. YouTube views, likes, comments and subscriptions never earn rewards.
