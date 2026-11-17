@@ -182,6 +182,12 @@ export function Campaigns() {
     act(setMsg, c.reload, () => api.post(`/admin/campaigns/${x.id}/package`, { packageId: id.trim().toLowerCase() }), 'Tier set.')
   }
   const tierReward = cfg && cfg.packages ? (cfg.packages.find((p) => p.id === f.packageId) || {}).memberRewardKobo || 0 : 0
+  const setTier = (x) => {
+    const id = ask(`Package tier for "${x.name}" (spark, boost or prime). Only members with that package will see it, and the reward becomes that tier's reward:`)
+    if (id === null) return
+    act(setMsg, c.reload, () => api.post(`/admin/campaigns/${x.id}/package`, { packageId: id.trim().toLowerCase() }), 'Tier set.')
+  }
+  const tierReward = cfg && cfg.packages ? (cfg.packages.find((p) => p.id === f.packageId) || {}).memberRewardKobo || 0 : 0
   const adjustBudget = (x) => {
     const amt = ask(`New TOTAL budget in ₦ for "${x.name}"\n(now ${naira(x.budgetKobo)}; ${naira(x.consumedKobo)} already used; ${naira(x.advertiserRateKobo)} per view):`)
     if (amt === null) return
@@ -209,6 +215,7 @@ export function Campaigns() {
               {x.status === 'CONTENT_REVIEW' ? <button className="btn sm danger" onClick={() => review(x, false)}>Reject &amp; refund</button> : null}
               {x.status === 'AWAITING_VIDEO' ? <button className="btn sm orange" onClick={() => setVideoFor(x)}>Upload video</button> : null}
               {x.status === 'CONTENT_REVIEW' ? <button className="btn sm ghost" onClick={() => setVideoFor(x)}>Replace video</button> : null}
+              {!x.packageId ? <button className="btn sm orange" onClick={() => setTier(x)}>Set tier</button> : null}
               {!x.packageId ? <button className="btn sm orange" onClick={() => setTier(x)}>Set tier</button> : null}
               {x.status === 'PENDING_REVIEW' ? <button className="btn sm" onClick={() => fund(x)}>Record prepayment</button> : null}
               {x.status === 'ACTIVE' ? <button className="btn sm ghost" onClick={() => setStatus(x, 'PAUSED')}>Pause</button> : null}
