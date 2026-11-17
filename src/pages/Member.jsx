@@ -79,7 +79,7 @@ export function Dashboard() {
         </div>
         <div className="card stack">
           <h2>Referrals</h2>
-          <p className="muted">{d.verifiedReferrals} of {d.referralsRequiredToWithdraw || 3} verified referrals needed to withdraw. {cfg.referralRewardKobo > 0 ? `You earn ${naira(cfg.referralRewardKobo)} for each person who verifies their account.` : 'Referral rewards are not currently offered.'}</p>
+          <p className="muted">{d.verifiedReferrals} of {d.referralsRequiredToWithdraw || 3} verified referrals needed to withdraw. {cfg.referralRewardKobo > 0 ? `You earn ${naira(cfg.referralRewardKobo)} for each person who verifies their account, as long as you have a package.` : 'Referral rewards are not currently offered.'}</p>
           {(d.referrals || []).slice(0, 5).map((x, i) => <div key={i} className="row small"><span>{x.name}</span><span className="muted">{x.verified ? `Verified · +${naira(x.bonusKobo)}` : 'Not verified yet'}</span></div>)}
           <Link className="btn ghost" to="/app/referrals">Your referral code</Link>
         </div>
@@ -289,7 +289,7 @@ export function Referrals() {
         <div className="field"><label>Your invite link</label><input readOnly value={link} onFocus={(e) => e.target.select()} /></div>
         <div className="notice green">
           {r.data.bonusKobo > 0
-            ? `Rule: you earn ${naira(r.data.bonusKobo)} for each person you invite, when they verify their email and phone. It is credited to your balance straight away and shows in your referral earnings. You can withdraw once 3 of them are verified.`
+            ? `Rule: you earn ${naira(r.data.bonusKobo)} for each person you invite, when they verify their email and phone, if you have already subscribed to a package. It is credited to your balance straight away and shows in your referral earnings. You can withdraw once 3 of them are verified.`
             : 'Rule: referral rewards are not currently offered. Referral counts are still recorded.'}
         </div>
       </div>
