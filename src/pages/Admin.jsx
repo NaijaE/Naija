@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { api, useApi, useAuth, naira, fmtTime, PAY_METHODS, toKobo, API_URL } from '../api.js'
+import { api, useApi, useAuth, naira, fmtTime, PAY_METHODS, toKobo, API_URL, usePublicConfig } from '../api.js'
 import { Stat, StatusPill } from '../components/Shell.jsx'
 import { uploadVideoToCloudinary, videoFileProblem } from '../upload.js'
 
@@ -131,8 +131,9 @@ function AdminVideoForm({ campaign, onClose, onDone, setMsg }) {
 
 export function Campaigns() {
   const c = useApi('/admin/campaigns')
+  const { cfg } = usePublicConfig()
   const [msg, setMsg] = useState(null)
-  const [f, setF] = useState({ name: '', sponsor: '', title: '', rewardNaira: 50, rateNaira: 75, budgetNaira: 5000 })
+  const [f, setF] = useState({ name: '', sponsor: '', title: '', packageId: 'spark', rateNaira: 75, budgetNaira: 5000 })
   const [platform, setPlatform] = useState(false)
   const [video, setVideo] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -146,7 +147,7 @@ export function Campaigns() {
     setBusy(true)
     try {
       const videoPublicId = await uploadAdminVideo(video)
-      const body = { name: f.name, sponsor: f.sponsor, title: f.title, videoPublicId, rewardKobo: toKobo(f.rewardNaira) }
+      const body = { name: f.name, sponsor: f.sponsor, title: f.title, videoPublicId, packageId: f.packageId }
       if (platform) body.platformBudgetKobo = toKobo(f.budgetNaira); else body.advertiserRateKobo = toKobo(f.rateNaira)
       await api.post('/admin/campaigns', body)
       setMsg({ ok: platform ? 'Platform-funded campaign is live. Members are paid from this budget until it runs out.' : 'Campaign created and waiting for prepayment. It cannot go live until funds clear.' })
@@ -175,6 +176,12 @@ export function Campaigns() {
     if (reason === null) return
     act(setMsg, c.reload, () => api.patch(`/admin/campaigns/${x.id}/status`, { status, reason }), 'Updated.')
   }
+  const setTier = (x) => {
+    const id = ask(`Package tier for "${x.name}" (spark, boost or prime). Only members with that package will see it, and the reward becomes that tier's reward:`)
+    if (id === null) return
+    act(setMsg, c.reload, () => api.post(`/admin/campaigns/${x.id}/package`, { packageId: id.trim().toLowerCase() }), 'Tier set.')
+  }
+  const tierReward = cfg && cfg.packages ? (cfg.packages.find((p) => p.id === f.packageId) || {}).memberRewardKobo || 0 : 0
   const adjustBudget = (x) => {
     const amt = ask(`New TOTAL budget in ₦ for "${x.name}"\n(now ${naira(x.budgetKobo)}; ${naira(x.consumedKobo)} already used; ${naira(x.advertiserRateKobo)} per view):`)
     if (amt === null) return
@@ -192,7 +199,7 @@ export function Campaigns() {
         <thead><tr><th>Campaign</th><th>Sponsor</th><th>Reward / advertiser rate</th><th>Budget</th><th>Used</th><th>Completions</th><th>Status</th><th /></tr></thead>
         <tbody>{c.data.campaigns.map((x) => (
           <tr key={x.id}>
-            <td><b>{x.name}</b><div className="small muted">{x.title || 'no video yet'}</div></td><td>{x.sponsor}</td>
+            <td><b>{x.name}</b><div className="small muted">{x.title || 'no video yet'}</div><div className="small muted">{x.packageId ? `${x.packageId.toUpperCase()} members only` : 'No tier: hidden from members'}</div></td><td>{x.sponsor}</td>
             <td>{naira(x.rewardKobo)} / {naira(x.advertiserRateKobo)}</td>
             <td>{naira(x.budgetKobo)}<div className="small muted">{x.fundingSource === 'PLATFORM' ? 'Platform-funded' : (x.prepaymentRef || 'no prepayment')}</div></td>
             <td>{naira(x.consumedKobo)}</td><td>{x.completions} / {x.completionCap}</td><td><StatusPill status={x.status} /></td>
@@ -202,6 +209,7 @@ export function Campaigns() {
               {x.status === 'CONTENT_REVIEW' ? <button className="btn sm danger" onClick={() => review(x, false)}>Reject &amp; refund</button> : null}
               {x.status === 'AWAITING_VIDEO' ? <button className="btn sm orange" onClick={() => setVideoFor(x)}>Upload video</button> : null}
               {x.status === 'CONTENT_REVIEW' ? <button className="btn sm ghost" onClick={() => setVideoFor(x)}>Replace video</button> : null}
+              {!x.packageId ? <button className="btn sm orange" onClick={() => setTier(x)}>Set tier</button> : null}
               {x.status === 'PENDING_REVIEW' ? <button className="btn sm" onClick={() => fund(x)}>Record prepayment</button> : null}
               {x.status === 'ACTIVE' ? <button className="btn sm ghost" onClick={() => setStatus(x, 'PAUSED')}>Pause</button> : null}
               {x.status === 'PAUSED' ? <button className="btn sm ghost" onClick={() => setStatus(x, 'ACTIVE')}>Resume</button> : null}
@@ -220,9 +228,9 @@ export function Campaigns() {
           <div className="field"><label>Sponsor (advertiser)</label><input value={f.sponsor} onChange={set('sponsor')} /></div>
           <div className="field"><label>Video title</label><input value={f.title} onChange={set('title')} /></div>
           <div className="field"><label>Video file (10 to 120 s)</label><input type="file" accept="video/*" onChange={(e) => setVideo(e.target.files[0] || null)} /></div>
-          <div className="field"><label>Member reward (₦)</label><input value={f.rewardNaira} onChange={set('rewardNaira')} inputMode="decimal" /></div>
+          <div className="field"><label>Package tier</label><select value={f.packageId} onChange={set('packageId')}>{((cfg && cfg.packages) || [{ id: 'spark', name: 'Spark' }, { id: 'boost', name: 'Boost' }, { id: 'prime', name: 'Prime' }]).map((p) => <option key={p.id} value={p.id}>{p.name}{p.memberRewardKobo ? ` · ${naira(p.memberRewardKobo)} per view` : ''}</option>)}</select><span className="small muted">Only members with this package see the video. Reward: {naira(tierReward)} per view, set by the tier.</span></div>
           {platform
-            ? <div className="field"><label>Platform budget (₦)</label><input value={f.budgetNaira} onChange={set('budgetNaira')} inputMode="decimal" /><span className="small muted">Views available: about {Math.floor(Number(f.budgetNaira || 0) / Math.max(Number(f.rewardNaira || 0), 0.01)).toLocaleString()}</span></div>
+            ? <div className="field"><label>Platform budget (₦)</label><input value={f.budgetNaira} onChange={set('budgetNaira')} inputMode="decimal" /><span className="small muted">Views available: about {Math.floor(Number(f.budgetNaira || 0) / Math.max(tierReward / 100, 0.01)).toLocaleString()}</span></div>
             : <div className="field"><label>Advertiser rate per view (₦)</label><input value={f.rateNaira} onChange={set('rateNaira')} inputMode="decimal" /></div>}
         </div>
         <button className="btn" disabled={busy}>{busy ? 'Uploading…' : (platform ? 'Create and go live' : 'Create campaign')}</button>
