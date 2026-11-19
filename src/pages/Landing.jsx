@@ -81,7 +81,7 @@ export default function Landing() {
                     <li>About {naira(rate)} per view</li>
                     <li>Members earn {naira(p.memberRewardKobo)} per view</li>
                     <li>Video reviewed before going live</li>
-                    <li>Pay by Paystack, Flutterwave or bank transfer</li>
+                    <li>Pay by Paystack or bank transfer</li>
                   </ul>
                   <Link className={'btn' + (p.id === popular ? ' orange' : '')} style={{ width: '100%' }} to={advertiseTo(p.id)}>Choose {p.name}</Link>
                 </div>

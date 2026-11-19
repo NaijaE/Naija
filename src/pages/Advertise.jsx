@@ -116,7 +116,7 @@ export function Advertise() {
       <form className="card stack" onSubmit={submit}>
         <h2>Pay for {pkg.name}</h2>
         <div className="field"><label htmlFor="pm">Payment method</label>
-          <select id="pm" value={f.method} onChange={set('method')}>{Object.entries(PAY_METHODS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
+          <select id="pm" value={f.method} onChange={set('method')}>{Object.entries(PAY_METHODS).filter(([k]) => k !== 'FLUTTERWAVE').map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
         {f.method === 'BANK_TRANSFER' ? (
           <div className="notice green stack">
             <div>Transfer <b>{naira(pkg.priceKobo)}</b> to <b>{cfg.bank.bank}</b>, account name <b>{cfg.bank.accountName}</b>, account number <b>{cfg.bank.accountNumber}</b>, then upload your proof of payment.</div>

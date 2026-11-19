@@ -70,7 +70,7 @@ export function Deposits() {
   return (
     <>
       <h1 style={{ fontSize: '1.8rem' }}>Deposits</h1>
-      <div className="notice">Approve a manual deposit only after the money is visible in the bank account. Gateway payments (Paystack/Flutterwave) confirm themselves after the server verifies them with the provider.</div>
+      <div className="notice">Approve a manual deposit only after the money is visible in the bank account. Gateway payments (Paystack) confirm themselves after the server verifies them with the provider.</div>
       <Msg m={msg} />
       <div className="card stack"><h2>Awaiting review ({pending.length})</h2>
         {pending.length === 0 ? <p className="muted">Nothing waiting.</p> : pending.map((o) => (
@@ -436,7 +436,7 @@ export function Regulator() {
       <div className="notice green">Read-only summary. Member activation fees: <b>none</b>. Member payment to join: <b>none</b>. Withdrawal gated by referrals: <b>no</b>. Advertiser package deposits are the only incoming funds.</div>
       <div className="grid g3">
         <Stat label="Advertiser funds received" value={naira(d.fundedKobo)} hint="Cleared campaign budgets" />
-        <Stat label="Package deposits (confirmed)" value={naira(d.depositsKobo)} hint="Paystack, Flutterwave and approved transfers" />
+        <Stat label="Package deposits (confirmed)" value={naira(d.depositsKobo)} hint="Paystack and approved transfers" />
         <Stat label="Budget consumed" value={naira(d.consumedKobo)} hint="Advertiser-billable completions" />
         <Stat label="Rewards credited to members" value={naira(d.rewardsCreditedKobo)} hint="Validated completions and referral bonuses" />
         <Stat label="Reward liability" value={naira(d.liabilityKobo)} hint="Member balances owed, not yet requested" />
