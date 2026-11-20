@@ -1,3 +1,4 @@
+import CopyButton from '../components/CopyButton.jsx'
 import { useEffect, useRef, useState } from 'react'
 import EarnNotice from '../components/EarnNotice.jsx'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -285,7 +286,7 @@ export function Referrals() {
     <>
       <div><h1 style={{ fontSize: '1.8rem' }}>Referrals</h1><p className="muted">Invite friends with your code. You earn a reward for each person who verifies their account, and you can withdraw once 3 of them are verified.</p></div>
       <div className="card stack">
-        <div className="field"><label>Your referral code</label><input readOnly value={user.referralCode} /></div>
+        <div className="field"><label>Your referral code</label><div className="row"><input readOnly value={user.referralCode} /><CopyButton text={user.referralCode} label="Copy code" /></div></div>
         <div className="field"><label>Your invite link</label><input readOnly value={link} onFocus={(e) => e.target.select()} /></div>
         <div className="notice green">
           {r.data.referralRewards

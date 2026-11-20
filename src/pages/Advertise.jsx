@@ -1,3 +1,4 @@
+import CopyButton from '../components/CopyButton.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, useApi, usePublicConfig, naira, fmtTime, PAY_METHODS } from '../api.js'
@@ -119,7 +120,14 @@ export function Advertise() {
           <select id="pm" value={f.method} onChange={set('method')}>{Object.entries(PAY_METHODS).filter(([k]) => k !== 'FLUTTERWAVE').map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
         {f.method === 'BANK_TRANSFER' ? (
           <div className="notice green stack">
-            <div>Transfer <b>{naira(pkg.priceKobo)}</b> to <b>{cfg.bank.bank}</b>, account name <b>{cfg.bank.accountName}</b>, account number <b>{cfg.bank.accountNumber}</b>, then upload your proof of payment.</div>
+            <div className="stack">
+              <div>Transfer <b>{naira(pkg.priceKobo)}</b> to the account below, then upload your proof of payment.</div>
+              <div className="row between"><span>Amount: <b>{naira(pkg.priceKobo)}</b></span><CopyButton text={String(pkg.priceKobo / 100)} /></div>
+              <div className="row between"><span>Bank: <b>{cfg.bank.bank}</b></span><CopyButton text={cfg.bank.bank} /></div>
+              <div className="row between"><span>Account name: <b>{cfg.bank.accountName}</b></span><CopyButton text={cfg.bank.accountName} /></div>
+              <div className="row between"><span>Account number: <b>{cfg.bank.accountNumber}</b></span><CopyButton text={cfg.bank.accountNumber} /></div>
+              <CopyButton label="Copy all bank details" text={`${cfg.bank.bank}\n${cfg.bank.accountName}\n${cfg.bank.accountNumber}`} />
+            </div>
             <div className="field" style={{ marginBottom: 0 }}><label htmlFor="pf">Proof of payment (JPG, PNG, WEBP or PDF, max 5 MB)</label>
               <input id="pf" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => setProof(e.target.files[0] || null)} /></div>
           </div>
